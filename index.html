@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GLOBALTY® — OEE Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f4f6f9;
+  --surface: #ffffff;
+  --surface2: #f0f2f6;
+  --border: #dde1ea;
+  --accent: #0066cc;
+  --accent2: #ff6b35;
+  --accent3: #0099cc;
+  --warn: #e6a817;
+  --danger: #d63031;
+  --success: #00cc88;
+  --text: #1a1f2e;
+  --text-muted: #7a8299;
+  --text-dim: #4a5568;
+  --font-display: 'Bebas Neue', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+  --font-body: 'IBM Plex Sans', sans-serif;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: linear-gradient(rgba(0, 102, 204, 0.04) 1px, transparent 1px), 
+                    linear-gradient(90deg, rgba(0, 102, 204, 0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.app {
+  position: relative;
+  z-index: 1;
+}
+
+/* LOADING */
+#loading {
+  position: fixed;
+  inset: 0;
+  background: #111318;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+  gap: 20px;
+}
+
+.loading-logo {
+  font-family: var(--font-display);
+  font-size: 64px;
+  letter-spacing: 8px;
+  color: var(--accent);
+}
+
+.loading-bar-track {
+  width: 320px;
+  height: 2px;
+  background: #1e2330;
+  overflow: hidden;
+}
+
+.loading-bar {
+  height: 100%;
+  background: var(--accent);
+  animation: loadbar 3s ease-in-out forwards;
+}
+
+@keyframes loadbar {
+  from { width: 0 }
+  to { width: 100% }
+}
+
+.loading-text {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: #8892a4;
+  letter-spacing: 2px;
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1 }
+  50% { opacity: 0.3 }
+}
+
+/* HEADER */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 28px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(10, 12, 15, 0.97);
+  backdrop-filter: blur(12px);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.logo-block {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.logo-text {
+  font-family: var(--font-display);
+  font-size: 22px;
+  letter-spacing: 3px;
+  color: #f0c000;
+}
+
+.logo-sub {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-muted);
+  letter-spacing: 2px;
+  margin-top: 2px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+}
+
+select {
+  background: #1e2330;
+  border: 1px solid #2a3048;
+  color: #d0d8ea;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 6px 10px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s;
+  border-radius: 3px;
+}
+
+select:hover {
+  border-color: var(--accent);
+}
+
+.status-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-dim);
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+}
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--success);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1 }
+  50% { opacity: 0.3 }
+}
+
+/* MAIN */
+main {
+  padding: 24px 28px;
+  display: block;
+}
+
+/* TABS */
+.tab-bar {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 22px;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.tab-btn {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 2px;
+  padding: 10px 16px;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+  text-transform: uppercase;
+}
+
+.tab-btn.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.tab-btn:hover {
+  color: var(--text);
+}
+
+.tab-panel {
+  display: none;
+}
+
+.tab-panel.active {
+  display: block;
+}
+
+/* SECTION TITLE */
+.section-title {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 3px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.section-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* KPI GRID */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-bottom: 22px;
+}
+
+.kpi-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 16px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.2s, transform 0.2s;
+}
+
+.kpi-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+
+.kpi-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 100%;
+  background: var(--accent);
+}
+
+.kpi-card.green::before {
+  background: var(--success);
+}
+
+.kpi-card.warn::before {
+  background: var(--warn);
+}
+
+.kpi-card.danger::before {
+  background: var(--danger);
+}
+
+.kpi-label {
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.kpi-value {
+  font-family: var(--font-display);
+  font-size: 36px;
+  line-height: 1;
+  color: var(--text);
+}
+
+.kpi-unit {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+
+.kpi-meta {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  margin-top: 4px;
+}
+
+.up {
+  color: var(--success);
+}
+
+.down {
+  color: var(--danger);
+}
+
+.progress-track {
+  margin-top: 8px;
+  height: 2px;
+  background: var(--border);
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 1s ease;
+}
+
+.progress-fill.green {
+  background: var(--success);
+}
+
+.progress-fill.warn {
+  background: var(--warn);
+}
+
+.progress-fill.danger {
+  background: var(--danger);
+}
+
+/* CHART GRID */
+.chart-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.chart-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 20px;
+}
+
+.chart-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+
+.chart-container {
+  position: relative;
+  height: 350px;
+}
+
+/* TABLE */
+.table-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 20px;
+  overflow-x: auto;
+  margin-bottom: 22px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+thead {
+  background: var(--surface2);
+}
+
+th {
+  padding: 10px;
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+}
+
+td {
+  padding: 10px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+tr:hover {
+  background: var(--surface2);
+}
+
+.val-num {
+  font-family: var(--font-mono);
+  text-align: right;
+}
+
+.badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+
+.badge-ok {
+  background: rgba(0, 204, 136, 0.15);
+  color: var(--success);
+}
+
+.badge-warn {
+  background: rgba(230, 168, 23, 0.15);
+  color: var(--warn);
+}
+
+.badge-bad {
+  background: rgba(214, 48, 49, 0.15);
+  color: var(--danger);
+}
+
+/* RESPONSIVE */
+@media (max-width: 1200px) {
+  .chart-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .kpi-grid {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  }
+}
+
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="loading-logo">OEE</div>
+  <div class="loading-bar-track"><div class="loading-bar"></div></div>
+  <div class="loading-text">INICIANDO DASHBOARD...</div>
+</div>
+
+<div class="app">
+<header>
+  <div class="logo-block">
+    <div>
+      <div class="logo-text">GLOBALTY®</div>
+      <div class="logo-sub">OEE CONTROL</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="filter-group">
+      <label class="filter-label">PLANTA</label>
+      <select id="plantSelect">
+        <option value="GENERAL">GENERAL (Todas)</option>
+        <option value="SK">SK</option>
+        <option value="Glama">Glama</option>
+        <option value="Desa">Desa</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label class="filter-label">MÁQUINA</label>
+      <select id="machineSelect">
+        <option value="">TODAS</option>
+      </select>
+    </div>
+    <div class="status-pill">
+      <span class="status-dot"></span>
+      EN VIVO
+    </div>
+  </div>
+</header>
+
+<main>
+
+<!-- TABS -->
+<div class="tab-bar">
+  <button class="tab-btn active" data-tab="resumen">RESUMEN</button>
+  <button class="tab-btn" data-tab="detalle">DETALLE</button>
+</div>
+
+<!-- TAB: RESUMEN -->
+<div class="tab-panel active" id="tab-resumen">
+  <div class="section-title">OEE ACTUAL</div>
+  <div class="kpi-grid" id="kpi-main"></div>
+  
+  <div class="section-title">COMPONENTES</div>
+  <div class="kpi-grid" id="kpi-components"></div>
+  
+  <div class="section-title">GRÁFICOS</div>
+  <div class="chart-grid">
+    <div class="chart-card">
+      <div class="chart-title">Tendencia OEE</div>
+      <div class="chart-container">
+        <canvas id="chart-trend"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">OEE por Máquina</div>
+      <div class="chart-container">
+        <canvas id="chart-machines"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-grid">
+    <div class="chart-card">
+      <div class="chart-title">Disponibilidad vs Rendimiento vs Calidad</div>
+      <div class="chart-container">
+        <canvas id="chart-components"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TAB: DETALLE -->
+<div class="tab-panel" id="tab-detalle">
+  <div class="section-title">ÚLTIMOS REGISTROS</div>
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Máquina</th>
+          <th>Turno</th>
+          <th class="val-num">Disponibilidad</th>
+          <th class="val-num">Rendimiento</th>
+          <th class="val-num">Calidad</th>
+          <th class="val-num">OEE</th>
+          <th>Estado</th>
+          <th>Observaciones</th>
+        </tr>
+      </thead>
+      <tbody id="table-body"></tbody>
+    </table>
+  </div>
+</div>
+
+</main>
+</div>
+
+<script>
+// CONFIG
+const SHEET_ID = "13uWE4vL4Y-disGnXOZG169xwJIYrNYYyLjLhYyMrwf8";
+const GIDS = {
+  MAQUINAS: 474305389,
+  METAS: 1468344149,
+  DATOS_SK: 163789462,
+  DATOS_GLAMA: 5371331,
+  DATOS_DESA: 1865776508
+};
+
+const PLANT_GIDS = {
+  SK: GIDS.DATOS_SK,
+  Glama: GIDS.DATOS_GLAMA,
+  Desa: GIDS.DATOS_DESA
+};
+
+// STATE
+let state = {
+  plant: 'SK',
+  machine: '',
+  maquinas: [],
+  metas: {},
+  datos: {},
+  charts: {}
+};
+
+// UTILS
+function hideLoading() {
+  document.getElementById('loading').style.display = 'none';
+}
+
+function parseNum(str) {
+  if (!str) return 0;
+  return parseFloat(String(str).replace(',', '.'));
+}
+
+async function fetchCSV(gid) {
+  try {
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return await response.text();
+  } catch (e) {
+    console.error(`Error fetching GID ${gid}:`, e);
+    return '';
+  }
+}
+
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  if (lines.length < 2) return [];
+  
+  const headers = lines[0].split(',').map(h => h.trim());
+  const data = [];
+  
+  for (let i = 1; i < lines.length; i++) {
+    const cells = lines[i].split(',').map(c => c.trim());
+    const obj = {};
+    headers.forEach((h, idx) => {
+      obj[h] = cells[idx] || '';
+    });
+    if (Object.values(obj).some(v => v)) {
+      data.push(obj);
+    }
+  }
+  
+  return data;
+}
+
+function calcOEE(row) {
+  const tiempo_total = parseNum(row.Tiempo_Total_Min) || 0;
+  const paros_plan = parseNum(row.Paros_Planificados_Min) || 0;
+  const paros_no_plan = parseNum(row.Paros_No_Plan_Min) || 0;
+  
+  const tiempo_disponible = tiempo_total - paros_plan;
+  const disponibilidad = tiempo_disponible > 0 ? (tiempo_disponible - paros_no_plan) / tiempo_disponible : 0;
+  
+  const prod_real = parseNum(row.Prod_Real_Piezas) || 0;
+  const prod_esperada = parseNum(row.Piezas_Esperadas) || 0;
+  const rendimiento = prod_esperada > 0 ? prod_real / prod_esperada : 0;
+  
+  const calidad_ok = parseNum(row.Calidad_OK_Piezas) || 0;
+  const calidad = prod_real > 0 ? calidad_ok / prod_real : 0;
+  
+  const oee = disponibilidad * rendimiento * calidad;
+  
+  return {
+    disponibilidad: Math.max(0, Math.min(1, disponibilidad)),
+    rendimiento: Math.max(0, Math.min(1, rendimiento)),
+    calidad: Math.max(0, Math.min(1, calidad)),
+    oee: Math.max(0, Math.min(1, oee))
+  };
+}
+
+async function loadData() {
+  // Cargar máquinas
+  const maqCSV = await fetchCSV(GIDS.MAQUINAS);
+  const maqData = parseCSV(maqCSV);
+  state.maquinas = maqData;
+  updateMachineFilter();
+  
+  // Cargar metas
+  const metasCSV = await fetchCSV(GIDS.METAS);
+  const metasData = parseCSV(metasCSV);
+  metasData.forEach(m => {
+    state.metas[m.Planta] = parseNum(m.Meta_OEE_PCT) / 100;
+  });
+  
+  // Cargar datos por planta
+  for (const plant of ['SK', 'Glama', 'Desa']) {
+    const gid = PLANT_GIDS[plant];
+    const csv = await fetchCSV(gid);
+    const data = parseCSV(csv);
+    
+    data.forEach(row => {
+      const calc = calcOEE(row);
+      row.oee_calc = calc.oee;
+      row.disponibilidad_calc = calc.disponibilidad;
+      row.rendimiento_calc = calc.rendimiento;
+      row.calidad_calc = calc.calidad;
+    });
+    
+    state.datos[plant] = data;
+  }
+  
+  hideLoading();
+  render();
+}
+
+function updateMachineFilter() {
+  const select = document.getElementById('machineSelect');
+  const plantData = state.datos[state.plant] || [];
+  
+  const machines = [...new Set(state.maquinas
+    .filter(m => m.Planta === state.plant)
+    .map(m => m.Máquina)
+  )].sort();
+  
+  select.innerHTML = '<option value="">TODAS</option>';
+  machines.forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m;
+    opt.textContent = m;
+    select.appendChild(opt);
+  });
+}
+
+function getFilteredData() {
+  let data = state.datos[state.plant] || [];
+  if (state.machine) {
+    data = data.filter(d => d.Máquina === state.machine);
+  }
+  return data;
+}
+
+function render() {
+  renderKPI();
+  renderCharts();
+  renderTable();
+}
+
+function renderKPI() {
+  const data = getFilteredData();
+  const meta = state.metas[state.plant] || 0.85;
+  
+  // OEE General
+  const avgOEE = data.length > 0 ? data.reduce((s, d) => s + (d.oee_calc || 0), 0) / data.length : 0;
+  const statusOEE = avgOEE >= meta ? 'green' : (avgOEE >= meta * 0.9 ? 'warn' : 'danger');
+  
+  // Componentes
+  const avgDisp = data.length > 0 ? data.reduce((s, d) => s + (d.disponibilidad_calc || 0), 0) / data.length : 0;
+  const avgRend = data.length > 0 ? data.reduce((s, d) => s + (d.rendimiento_calc || 0), 0) / data.length : 0;
+  const avgCal = data.length > 0 ? data.reduce((s, d) => s + (d.calidad_calc || 0), 0) / data.length : 0;
+  
+  const statusDisp = avgDisp >= 0.90 ? 'green' : (avgDisp >= 0.85 ? 'warn' : 'danger');
+  const statusRend = avgRend >= 0.95 ? 'green' : (avgRend >= 0.90 ? 'warn' : 'danger');
+  const statusCal = avgCal >= 0.98 ? 'green' : (avgCal >= 0.95 ? 'warn' : 'danger');
+  
+  document.getElementById('kpi-main').innerHTML = `
+    <div class="kpi-card ${statusOEE}">
+      <div class="kpi-label">OEE</div>
+      <div class="kpi-value">${(avgOEE * 100).toFixed(1)}%</div>
+      <div class="kpi-unit">Meta: ${(meta * 100).toFixed(0)}%</div>
+      <div class="progress-track">
+        <div class="progress-fill ${statusOEE}" style="width: ${Math.min(100, avgOEE * 100)}%"></div>
+      </div>
+    </div>
+  `;
+  
+  document.getElementById('kpi-components').innerHTML = `
+    <div class="kpi-card ${statusDisp}">
+      <div class="kpi-label">Disponibilidad</div>
+      <div class="kpi-value">${(avgDisp * 100).toFixed(1)}%</div>
+      <div class="progress-track">
+        <div class="progress-fill ${statusDisp}" style="width: ${Math.min(100, avgDisp * 100)}%"></div>
+      </div>
+    </div>
+    <div class="kpi-card ${statusRend}">
+      <div class="kpi-label">Rendimiento</div>
+      <div class="kpi-value">${(avgRend * 100).toFixed(1)}%</div>
+      <div class="progress-track">
+        <div class="progress-fill ${statusRend}" style="width: ${Math.min(100, avgRend * 100)}%"></div>
+      </div>
+    </div>
+    <div class="kpi-card ${statusCal}">
+      <div class="kpi-label">Calidad</div>
+      <div class="kpi-value">${(avgCal * 100).toFixed(1)}%</div>
+      <div class="progress-track">
+        <div class="progress-fill ${statusCal}" style="width: ${Math.min(100, avgCal * 100)}%"></div>
+      </div>
+    </div>
+  `;
+}
+
+function renderCharts() {
+  const data = getFilteredData();
+  
+  if (data.length === 0) {
+    console.log('No data to render charts');
+    return;
+  }
+  
+  // Tendencia OEE
+  const ctx1 = document.getElementById('chart-trend')?.getContext('2d');
+  if (ctx1) {
+    if (state.charts.trend) state.charts.trend.destroy();
+    
+    const labels = data.slice(-14).map(d => `${d.Fecha} ${d.Turno}`);
+    const vals = data.slice(-14).map(d => (d.oee_calc * 100).toFixed(1));
+    
+    state.charts.trend = new Chart(ctx1, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'OEE %',
+          data: vals,
+          borderColor: '#0066cc',
+          backgroundColor: 'rgba(0, 102, 204, 0.1)',
+          tension: 0.4,
+          fill: true,
+          borderWidth: 2,
+          pointRadius: 3
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: true, position: 'top' } },
+        scales: { y: { min: 0, max: 100 } }
+      }
+    });
+  }
+  
+  // OEE por máquina
+  const ctx2 = document.getElementById('chart-machines')?.getContext('2d');
+  if (ctx2) {
+    if (state.charts.machines) state.charts.machines.destroy();
+    
+    const machines = [...new Set(data.map(d => d.Máquina))].sort();
+    const oeeByMachine = machines.map(m => {
+      const mdata = data.filter(d => d.Máquina === m);
+      return (mdata.reduce((s, d) => s + (d.oee_calc || 0), 0) / mdata.length * 100).toFixed(1);
+    });
+    
+    state.charts.machines = new Chart(ctx2, {
+      type: 'bar',
+      data: {
+        labels: machines,
+        datasets: [{
+          label: 'OEE %',
+          data: oeeByMachine,
+          backgroundColor: ['#0066cc', '#ff6b35', '#0099cc', '#00cc88', '#e6a817'].slice(0, machines.length),
+          borderRadius: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: { min: 0, max: 100 } }
+      }
+    });
+  }
+  
+  // Componentes
+  const ctx3 = document.getElementById('chart-components')?.getContext('2d');
+  if (ctx3) {
+    if (state.charts.components) state.charts.components.destroy();
+    
+    const avgDisp = (data.reduce((s, d) => s + (d.disponibilidad_calc || 0), 0) / data.length * 100).toFixed(1);
+    const avgRend = (data.reduce((s, d) => s + (d.rendimiento_calc || 0), 0) / data.length * 100).toFixed(1);
+    const avgCal = (data.reduce((s, d) => s + (d.calidad_calc || 0), 0) / data.length * 100).toFixed(1);
+    
+    state.charts.components = new Chart(ctx3, {
+      type: 'bar',
+      data: {
+        labels: ['Disponibilidad', 'Rendimiento', 'Calidad'],
+        datasets: [{
+          label: '%',
+          data: [avgDisp, avgRend, avgCal],
+          backgroundColor: ['#0099cc', '#ff6b35', '#00cc88'],
+          borderRadius: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: { min: 0, max: 100 } }
+      }
+    });
+  }
+}
+
+function renderTable() {
+  const data = getFilteredData();
+  const tbody = document.getElementById('table-body');
+  tbody.innerHTML = '';
+  
+  data.slice().reverse().slice(0, 20).forEach(row => {
+    const oee = (row.oee_calc * 100).toFixed(1);
+    const status = oee >= 85 ? 'badge-ok' : (oee >= 75 ? 'badge-warn' : 'badge-bad');
+    const statusTxt = oee >= 85 ? '✓' : (oee >= 75 ? '⚠' : '✗');
+    
+    tbody.innerHTML += `
+      <tr>
+        <td>${row.Fecha}</td>
+        <td><strong>${row.Máquina}</strong></td>
+        <td>${row.Turno}</td>
+        <td class="val-num">${(row.disponibilidad_calc * 100).toFixed(1)}%</td>
+        <td class="val-num">${(row.rendimiento_calc * 100).toFixed(1)}%</td>
+        <td class="val-num">${(row.calidad_calc * 100).toFixed(1)}%</td>
+        <td class="val-num"><strong>${oee}%</strong></td>
+        <td><span class="badge ${status}">${statusTxt}</span></td>
+        <td>${row.Observaciones || '-'}</td>
+      </tr>
+    `;
+  });
+}
+
+// EVENT LISTENERS
+document.getElementById('plantSelect').addEventListener('change', (e) => {
+  state.plant = e.target.value;
+  state.machine = '';
+  updateMachineFilter();
+  render();
+});
+
+document.getElementById('machineSelect').addEventListener('change', (e) => {
+  state.machine = e.target.value;
+  render();
+});
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
+  });
+});
+
+// INIT
+window.addEventListener('load', loadData);
+
+</script>
+</body>
+</html>
