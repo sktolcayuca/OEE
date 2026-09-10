@@ -2912,7 +2912,6 @@ async function cargarGalicia(meses, anio, corte) {
     // Parsear CSV
     const lines = csv.trim().split('\n');
     let ultimoIndex = -1;
-    let ultimoMes = null;
     let piezasTotal = 0;
     let fechaFinal = '—';
     
@@ -2924,6 +2923,7 @@ async function cargarGalicia(meses, anio, corte) {
     // Buscar filas que coincidan con los meses seleccionados, hasta el corte del mes actual
     const mesActual = mesesArray[mesesArray.length - 1];
     
+    // Buscar la ÚLTIMA fila dentro del período de meses seleccionados (con acumulado final)
     for (let i = lines.length - 1; i >= 1; i--) {
       const cols = lines[i].split(',').map(c => c.trim());
       
@@ -2935,22 +2935,20 @@ async function cargarGalicia(meses, anio, corte) {
           const mesData = parseInt(fechaParts[1]);
           const anioData = parseInt(fechaParts[2]);
           
-          // Si es de los meses seleccionados Y del año actual
-          if (mesesArray.includes(mesData) && anioData === anio) {
-            // Si es el mes actual, respetar el corte; si no, incluir todos los días
+          console.log(`  📅 Fila ${i}: Fecha=${cols[0]}, Mes=${mesData}, Año=${anioData}, Piezas=${cols[4]}`);
+          
+          // Si es del año actual Y dentro de los meses seleccionados
+          if (anioData === anio && mesesArray.includes(mesData)) {
+            // Si es el mes actual, respetar corte; si no, incluir cualquier día
             const esUltimoMes = mesData === mesActual;
             if (!esUltimoMes || dia <= corte) {
-              const piezas = parseNum(cols[4]); // Acum pzas
+              const piezas = parseNum(cols[4]); // Acum pzas (ya viene acumulado)
               if (piezas > 0) {
-                console.log(`  📅 Fila ${i}: Fecha=${cols[0]}, Mes=${mesData}, Piezas=${piezas}`);
-                if (ultimoIndex === -1 || mesData > ultimoMes) {
-                  // Tomar el más reciente de cada mes
-                  ultimoIndex = i;
-                  ultimoMes = mesData;
-                }
-                // Acumular piezas
-                piezasTotal = Math.max(piezasTotal, piezas);
+                console.log(`  ✅ Encontrado: ${piezas} piezas en ${cols[0]}`);
+                piezasTotal = piezas; // GALICIA viene acumulada, tomar la última
                 fechaFinal = cols[0];
+                ultimoIndex = i;
+                break; // Tomar la primera (última en el CSV invertido) que cumpla
               }
             }
           }
@@ -2958,17 +2956,13 @@ async function cargarGalicia(meses, anio, corte) {
       }
     }
     
-    if (ultimoIndex >= 1) {
-      const cols = lines[ultimoIndex].split(',').map(c => c.trim());
-      const piezas = parseNum(cols[4]); // Acum pzas
-      const fecha = cols[0];             // Fecha
+    if (ultimoIndex >= 1 && piezasTotal > 0) {
+      document.getElementById('galiciaPiezas').textContent = fmt(piezasTotal, 0);
+      document.getElementById('galiciaFecha').textContent = fechaFinal;
       
-      document.getElementById('galiciaPiezas').textContent = fmt(piezas, 0);
-      document.getElementById('galiciaFecha').textContent = fecha;
-      
-      console.log('✅ GALICIA actualizado:', {piezas, fecha});
+      console.log('✅ GALICIA actualizado:', {piezasTotal, fechaFinal});
     } else {
-      console.warn(`⚠️ No hay datos GALICIA para ${mes}/${anio} hasta día ${corte}`);
+      console.warn(`⚠️ No hay datos GALICIA para el período`);
       document.getElementById('galiciaPiezas').textContent = '—';
       document.getElementById('galiciaFecha').textContent = 'Sin datos';
     }
@@ -4476,7 +4470,8 @@ const USUARIOS = {
   'Moysés': 'Moy2026',
   'Brandon': 'Bran2026',
   'Javier': 'Javis2026',
-  'FerM': 'FMagaña2026'
+  'FerM': 'FMagaña2026',
+  'MartinM': 'MMaga2026'
 };
 
 // PRIVILEGIOS: qué plantas puede ver cada usuario
@@ -4491,7 +4486,8 @@ const PRIVILEGIOS_USUARIOS = {
   'Moysés': ['resumen', 'glama', 'devoluciones', 'diario'], // Solo Glama
   'Brandon': ['resumen', 'desa', 'devoluciones', 'diario'], // Solo Desa
   'Javier': ['resumen', 'desa', 'devoluciones', 'diario'],  // Solo Desa
-  'FerM': ['resumen', 'sk', 'glama', 'desa', 'devoluciones', 'diario']
+  'FerM': ['resumen', 'sk', 'glama', 'desa', 'devoluciones', 'diario'],
+  'MartinM': ['resumen', 'sk', 'glama', 'desa', 'devoluciones', 'diario']
 };
 
 let SESSION = {
