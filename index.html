@@ -2905,23 +2905,21 @@ async function cargarGalicia(meses, anio, corte) {
   const SHEET_ID = '1G_zCNp3ZMUkc2TF1eAopTDnGC07d8p_zOFUaiKcveIY';
   
   try {
-    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID_GALICIA}`;
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID_GALICIA}&t=${Date.now()}`;
     const res = await fetch(url);
     const csv = await res.text();
     
-    // Parsear CSV
     const lines = csv.trim().split('\n');
     const mesesArray = Array.isArray(meses) ? meses : [meses];
     const mesActual = mesesArray[mesesArray.length - 1];
     
-    console.log(`🔍 Buscando datos GALICIA para meses ${mesesArray.join(',')} año ${anio} hasta día ${corte}`);
+    console.log(`🔍 GALICIA: buscando múltiples meses ${mesesArray.join(',')} año ${anio}`);
     
-    // Recolectar TODAS las filas válidas
-    let filasFiltradas = [];
+    // Buscar la ÚLTIMA fila válida del período completo
+    let ultimaFila = null;
     
     for (let i = 1; i < lines.length; i++) {
       const cols = lines[i].split(',').map(c => c.trim());
-      
       if (cols[0]) {
         const fechaParts = cols[0].split('/');
         if (fechaParts.length === 3) {
@@ -2930,32 +2928,27 @@ async function cargarGalicia(meses, anio, corte) {
           const anioData = parseInt(fechaParts[2]);
           const piezas = parseNum(cols[4]);
           
-          // Si es del año actual, de los meses seleccionados, y cumple con el corte
           if (anioData === anio && mesesArray.includes(mesData) && piezas > 0) {
             const esUltimoMes = mesData === mesActual;
             if (!esUltimoMes || dia <= corte) {
-              filasFiltradas.push({
-                idx: i,
-                dia,
-                mes: mesData,
-                fecha: cols[0],
-                piezas: piezas
-              });
-              console.log(`  ✅ Fila válida: ${cols[0]} - ${piezas} piezas`);
+              // Guardar solo si es más reciente
+              if (!ultimaFila || new Date(cols[0]) > new Date(ultimaFila.fecha)) {
+                ultimaFila = {
+                  fecha: cols[0],
+                  piezas
+                };
+              }
             }
           }
         }
       }
     }
     
-    if (filasFiltradas.length > 0) {
-      // Tomar la ÚLTIMA fila (más reciente)
-      const ultima = filasFiltradas[filasFiltradas.length - 1];
+    if (ultimaFila) {
+      document.getElementById('galiciaPiezas').textContent = fmt(ultimaFila.piezas, 0);
+      document.getElementById('galiciaFecha').textContent = ultimaFila.fecha;
       
-      document.getElementById('galiciaPiezas').textContent = fmt(ultima.piezas, 0);
-      document.getElementById('galiciaFecha').textContent = ultima.fecha;
-      
-      console.log('✅ GALICIA actualizado:', ultima);
+      console.log('✅ GALICIA actualizado:', ultimaFila);
     } else {
       console.warn(`⚠️ No hay datos GALICIA para el período`);
       document.getElementById('galiciaPiezas').textContent = '—';
