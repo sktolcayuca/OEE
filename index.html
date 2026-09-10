@@ -2915,8 +2915,8 @@ async function cargarGalicia(meses, anio, corte) {
     
     console.log(`🔍 GALICIA: buscando múltiples meses ${mesesArray.join(',')} año ${anio}`);
     
-    // Buscar la ÚLTIMA fila válida del período completo
-    let ultimaFila = null;
+    // Para CADA mes, tomar la última fila y sumar
+    let filasEncontradas = {};
     
     for (let i = 1; i < lines.length; i++) {
       const cols = lines[i].split(',').map(c => c.trim());
@@ -2931,9 +2931,10 @@ async function cargarGalicia(meses, anio, corte) {
           if (anioData === anio && mesesArray.includes(mesData) && piezas > 0) {
             const esUltimoMes = mesData === mesActual;
             if (!esUltimoMes || dia <= corte) {
-              // Guardar solo si es más reciente
-              if (!ultimaFila || new Date(cols[0]) > new Date(ultimaFila.fecha)) {
-                ultimaFila = {
+              // Guardar la ÚLTIMA fila de cada mes
+              if (!filasEncontradas[mesData] || dia > filasEncontradas[mesData].dia) {
+                filasEncontradas[mesData] = {
+                  dia,
                   fecha: cols[0],
                   piezas
                 };
@@ -2944,11 +2945,21 @@ async function cargarGalicia(meses, anio, corte) {
       }
     }
     
-    if (ultimaFila) {
-      document.getElementById('galiciaPiezas').textContent = fmt(ultimaFila.piezas, 0);
-      document.getElementById('galiciaFecha').textContent = ultimaFila.fecha;
+    // Sumar los acumulados de cada mes
+    let piezasTotal = 0;
+    let fechaFinal = '—';
+    
+    if (Object.keys(filasEncontradas).length > 0) {
+      for (const mes in filasEncontradas) {
+        const fila = filasEncontradas[mes];
+        piezasTotal += fila.piezas;
+        fechaFinal = fila.fecha; // Usar la última fecha
+      }
       
-      console.log('✅ GALICIA actualizado:', ultimaFila);
+      document.getElementById('galiciaPiezas').textContent = fmt(piezasTotal, 0);
+      document.getElementById('galiciaFecha').textContent = fechaFinal;
+      
+      console.log('✅ GALICIA actualizado:', {piezasTotal, fechaFinal});
     } else {
       console.warn(`⚠️ No hay datos GALICIA para el período`);
       document.getElementById('galiciaPiezas').textContent = '—';
