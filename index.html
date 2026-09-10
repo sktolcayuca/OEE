@@ -2911,56 +2911,51 @@ async function cargarGalicia(meses, anio, corte) {
     
     // Parsear CSV
     const lines = csv.trim().split('\n');
-    let ultimoIndex = -1;
-    let piezasTotal = 0;
-    let fechaFinal = '—';
-    
-    // meses puede ser un array (múltiples) o un número (un mes)
     const mesesArray = Array.isArray(meses) ? meses : [meses];
-    
-    console.log(`🔍 Buscando datos GALICIA para meses ${mesesArray.join(',')} año ${anio} hasta día ${corte}. Total líneas: ${lines.length}`);
-    
-    // Buscar filas que coincidan con los meses seleccionados, hasta el corte del mes actual
     const mesActual = mesesArray[mesesArray.length - 1];
     
-    // Buscar la ÚLTIMA fila dentro del período de meses seleccionados (con acumulado final)
-    for (let i = lines.length - 1; i >= 1; i--) {
+    console.log(`🔍 Buscando datos GALICIA para meses ${mesesArray.join(',')} año ${anio} hasta día ${corte}`);
+    
+    // Recolectar TODAS las filas válidas
+    let filasFiltradas = [];
+    
+    for (let i = 1; i < lines.length; i++) {
       const cols = lines[i].split(',').map(c => c.trim());
       
-      if (cols[0]) { // Si hay fecha
-        // Parsear fecha (formato DD/MM/YYYY)
+      if (cols[0]) {
         const fechaParts = cols[0].split('/');
         if (fechaParts.length === 3) {
           const dia = parseInt(fechaParts[0]);
           const mesData = parseInt(fechaParts[1]);
           const anioData = parseInt(fechaParts[2]);
+          const piezas = parseNum(cols[4]);
           
-          console.log(`  📅 Fila ${i}: Fecha=${cols[0]}, Mes=${mesData}, Año=${anioData}, Piezas=${cols[4]}`);
-          
-          // Si es del año actual Y dentro de los meses seleccionados
-          if (anioData === anio && mesesArray.includes(mesData)) {
-            // Si es el mes actual, respetar corte; si no, incluir cualquier día
+          // Si es del año actual, de los meses seleccionados, y cumple con el corte
+          if (anioData === anio && mesesArray.includes(mesData) && piezas > 0) {
             const esUltimoMes = mesData === mesActual;
             if (!esUltimoMes || dia <= corte) {
-              const piezas = parseNum(cols[4]); // Acum pzas (ya viene acumulado)
-              if (piezas > 0) {
-                console.log(`  ✅ Encontrado: ${piezas} piezas en ${cols[0]}`);
-                piezasTotal = piezas; // GALICIA viene acumulada, tomar la última
-                fechaFinal = cols[0];
-                ultimoIndex = i;
-                break; // Tomar la primera (última en el CSV invertido) que cumpla
-              }
+              filasFiltradas.push({
+                idx: i,
+                dia,
+                mes: mesData,
+                fecha: cols[0],
+                piezas: piezas
+              });
+              console.log(`  ✅ Fila válida: ${cols[0]} - ${piezas} piezas`);
             }
           }
         }
       }
     }
     
-    if (ultimoIndex >= 1 && piezasTotal > 0) {
-      document.getElementById('galiciaPiezas').textContent = fmt(piezasTotal, 0);
-      document.getElementById('galiciaFecha').textContent = fechaFinal;
+    if (filasFiltradas.length > 0) {
+      // Tomar la ÚLTIMA fila (más reciente)
+      const ultima = filasFiltradas[filasFiltradas.length - 1];
       
-      console.log('✅ GALICIA actualizado:', {piezasTotal, fechaFinal});
+      document.getElementById('galiciaPiezas').textContent = fmt(ultima.piezas, 0);
+      document.getElementById('galiciaFecha').textContent = ultima.fecha;
+      
+      console.log('✅ GALICIA actualizado:', ultima);
     } else {
       console.warn(`⚠️ No hay datos GALICIA para el período`);
       document.getElementById('galiciaPiezas').textContent = '—';
